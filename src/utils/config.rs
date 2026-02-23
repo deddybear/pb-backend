@@ -19,7 +19,7 @@ impl Config {
                 .context("SERVER_PORT must be a valid port number")?,
             database_url: std::env::var("DATABASE_URL").context("DATABASE_URL IS REQUIRED")?,
             jwt_secret: std::env::var("JWT_SECRET").context("JWT_SECRET IS REQUIRED")?,
-            upload_dir: std::env::var("UPLOAD_DIR").context("UPLOAD_DIR IS REQUIRED")?,
+            upload_dir: std::env::var("SERVER_UPLOAD_DIR").context("SERVER_UPLOAD_DIR IS REQUIRED")?,
         })
     }
 }

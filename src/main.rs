@@ -4,7 +4,8 @@ mod routes;
 mod utils;
 
 use sqlx::postgres::PgPoolOptions;
-use std::{os::unix::net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
+use std::sync::Arc;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -37,11 +38,10 @@ async fn main() {
     let pool = PgPoolOptions::new()
         .max_connections(10)
         .connect(&config.database_url)
-        .await
-        .expect("Failed to create pg pool");
+        .await;
 
     let state = AppState {
-        db: pool,
+        db: pool.unwrap(),
         config: config.clone(),
     };
 
@@ -53,9 +53,11 @@ async fn main() {
         .parse()
         .expect("Failed to parse server address");
 
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr).await.expect("");
 
-    tracing::info!("Server running on http://{}", addr);
+    axum::serve(listener, app)
+        .await
+        .expect("Failed to start server");
 
-    axum::serve(listener, app).await.unwrap();
+    tracing::event!(tracing::Level::INFO, "Server running on http://{}", addr);
 }
