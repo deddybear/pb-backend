@@ -3,10 +3,8 @@ mod models;
 mod routes;
 mod utils;
 
-use axum::serve;
 use sqlx::postgres::PgPoolOptions;
-use std::sync::Arc;
-use tokio::net::TcpListener;
+use std::{os::unix::net::SocketAddr, sync::Arc};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -32,14 +30,15 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let config = Config::from_env();
+    let config = Config::from_env().expect("Failed to load config");
     let config = Arc::new(config);
 
-    // Database connection pool
+    //Database connection pool
     let pool = PgPoolOptions::new()
         .max_connections(10)
         .connect(&config.database_url)
-        .await?;
+        .await
+        .expect("Failed to create pg pool");
 
     let state = AppState {
         db: pool,
@@ -50,9 +49,13 @@ async fn main() {
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
 
-    let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let addr: SocketAddr = format!("{}:{}", config.server_host, config.server_port)
+        .parse()
+        .expect("Failed to parse server address");
 
-    tracing::info!("Server running on http://0.0.0.0:3000");
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
-    serve(listener, app).await.unwrap();
+    tracing::info!("Server running on http://{}", addr);
+
+    axum::serve(listener, app).await.unwrap();
 }
