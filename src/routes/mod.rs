@@ -1,4 +1,4 @@
-mod auth;
+mod auth_route;
 
 use axum::{routing::get, Router};
 
@@ -25,6 +25,6 @@ pub fn init_routes(state: AppState) -> Router {
     Router::new()
         .route("/", get(home))
         .route("/health", get(health_check))
-        .nest("/api/auth", auth::auth_routes())
+        .nest("/api/auth", auth_route::auth_routes())
         .with_state(state)
 }

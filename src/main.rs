@@ -3,13 +3,15 @@ mod models;
 mod routes;
 mod utils;
 
+use axum::error_handling::HandleErrorLayer;
 use sqlx::postgres::PgPoolOptions;
+use tower::ServiceBuilder;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::{routes::init_routes, utils::config::Config};
+use crate::{routes::init_routes, utils::config::Config, utils::handler::handle_any_error_2};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -38,10 +40,11 @@ async fn main() {
     let pool = PgPoolOptions::new()
         .max_connections(10)
         .connect(&config.database_url)
-        .await;
+        .await
+        .expect("Failed to connect to the database");
 
     let state = AppState {
-        db: pool.unwrap(),
+        db: pool,
         config: config.clone(),
     };
 
