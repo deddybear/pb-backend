@@ -3,15 +3,13 @@ mod models;
 mod routes;
 mod utils;
 
-use axum::error_handling::HandleErrorLayer;
 use sqlx::postgres::PgPoolOptions;
-use tower::ServiceBuilder;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::{routes::init_routes, utils::config::Config, utils::handler::handle_any_error_2};
+use crate::{routes::init_routes, utils::config::Config};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -27,7 +25,7 @@ async fn main() {
     // Init tracing
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG")
+            std::env::var("APP_DEBUG")
                 .unwrap_or_else(|_| "rust_axum_api=debug,tower_http=debug".into()),
         ))
         .with(tracing_subscriber::fmt::layer())
