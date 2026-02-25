@@ -25,7 +25,7 @@ pub async fn login(
 
     let account = sqlx::query_as::<_, Account>("
         SELECT player_id, username, password, email, age, 
-               rank, gold, cash, experience, nickname, nick_color, create_time 
+               rank, gold, cash, experience, nickname, create_time 
         FROM accounts 
         WHERE username = $1")
         .bind(&body.username)
@@ -33,14 +33,13 @@ pub async fn login(
         .await?
         .ok_or_else(|| AppError::Unauthorized("Invalid username".into()))?;
 
-
     
     Ok((
         StatusCode::CREATED,
         Json(create_response_with_data(
             200,
             &"Login successful".to_string(),
-            Some(json!(body)),
+            Some(json!(account)),
         )),
     ))
 }
@@ -49,6 +48,8 @@ pub async fn sign_up(
     State(state): State<AppState>,
     Json(body): Json<SignupRequest>,
 ) -> AppResult<impl IntoResponse> {
+
+    body.validate()?;
     Ok((
         StatusCode::CREATED,
         Json(create_response_with_data(

@@ -4,19 +4,19 @@ use validator::Validate;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct LoginRequest {
-    #[validate(length(min = 2, max = 100, message = "Name must be 2-100 characters"))]
+    #[validate(length(min = 4, max = 16, message = "Name must be 4-16 characters"))]
     pub username: String,
     #[validate(length(min = 5, message = "Password must be at least 5 characters"))]
     pub password: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, Validate)]
+#[derive(Debug, Deserialize, Serialize,  Validate)]
 pub struct SignupRequest {
-    #[validate(length(min = 2, max = 100, message = "Name must be 2-100 characters"))]
+    #[validate(length(min = 4, max = 16, message = "Name must be 4-16 characters"))]
     pub username: String,
     #[validate(email(message = "Email must be a valid email address"))]
     pub email: String,
-    #[validate(length(min = 5, message = "Password must be at least 5 characters"))]
+    #[validate(length(min = 5, message = "Password must be at least 4 characters"))]
     pub password: String,
     pub age: u8,
     pub rank: u8,
