@@ -4,7 +4,13 @@ use serde_json::json;
 
 use crate::{
     AppState,
-    models::auth_model::{Account, LoginRequest, SignupRequest},
+    models::{
+        auth_model::Account,
+    },
+    models::request::auth_request::{
+        LoginRequest,
+        SignupRequest,
+    },
     utils::{
         errors::{AppError, AppResult, extractors::AppJson},
         response::create_response_with_data,
@@ -17,12 +23,18 @@ pub async fn login(
 ) -> AppResult<impl IntoResponse> {
     body.validate()?;
 
-    let account = sqlx::query_as::<_, Account>("SELECT * FROM accounts WHERE username = $1")
+    let account = sqlx::query_as::<_, Account>("
+        SELECT player_id, username, password, email, age, 
+               rank, gold, cash, experience, nickname, nick_color, create_time 
+        FROM accounts 
+        WHERE username = $1")
         .bind(&body.username)
         .fetch_optional(&state.db)
         .await?
         .ok_or_else(|| AppError::Unauthorized("Invalid username".into()))?;
 
+
+    
     Ok((
         StatusCode::CREATED,
         Json(create_response_with_data(

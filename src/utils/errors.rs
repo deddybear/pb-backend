@@ -119,7 +119,7 @@ impl AppError {
                 // Berikan pesan yang helpful tapi tidak expose struktur internal
                 match e {
                     JsonRejection::JsonDataError(_) =>
-                        "Request body has invalid field types or missing required fields".to_string(),
+                        "Request body has invalid field types or missing required fields".to_string() + e.to_string().as_str(),
                     JsonRejection::JsonSyntaxError(_) =>
                         "Request body contains invalid JSON syntax".to_string(),
                     JsonRejection::MissingJsonContentType(_) =>
@@ -137,8 +137,8 @@ impl AppError {
             Self::DatabaseError(e) => match e {
                 sqlx::Error::RowNotFound => "Resource not found".to_string(),
                 _ => {
-                    // tracing::error!("Database error: {:?}", e);
-                    "A database error occurred".to_string() + e.to_string().as_str()
+                    tracing::error!("Database error: {:?}", e);
+                    "A database error occurred".to_string()
                 }
             },
             Self::IoError(e) => {
