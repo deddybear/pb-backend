@@ -1,7 +1,7 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use bcrypt::hash;
 use serde_json::json;
-use tower_http::body;
+
 
 use crate::{
     AppState,
@@ -82,15 +82,41 @@ pub async fn sign_up(
     }
 
     let password_hashed =
-        hash(&body.password, 15).map_err(|e| AppError::InternalError(e.to_string()));
+        hash(&body.password, 15).map_err(|e| AppError::InternalError(e.to_string()))?;
 
+    let mut tx = state.db.begin().await?;
+    
+    sqlx::query(
+        "INSERT INTO accounts (username, password, email, age, rank, cash, gold, tags) 
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+    )
+    .bind(&body.username)
+    .bind(&password_hashed)
+    .bind(&body.email)
+    .bind(&body.age)
+    .bind(31)
+    .bind(100000)
+    .bind(1000000)
+    .bind(100000)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| {
+        // Jika email race condition (duplicate key), berikan pesan yang jelas
+        if e.to_string().contains("duplicate key") {
+            AppError::Conflict("Email already registered".into())
+        } else {
+            AppError::DatabaseError(e)
+        }
+    })?;
+
+    tx.commit().await?;
 
     Ok((
         StatusCode::OK,
         Json(create_response_with_data(
             200,
             &"Signup successful".to_string(),
-            Some(json!({"has": "password_hashed"})),
+            Some(json!({"password_hash": password_hashed})),
         )),
     ))
 }

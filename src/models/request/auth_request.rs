@@ -20,24 +20,24 @@ pub struct SignupRequest {
     pub password: String,
     #[garde(range(min = 5, max = 255))]
     pub age: i32,
-    #[garde(skip)]
-    pub rank: Option<i32>,
-    #[garde(skip)]
-    pub ip4_address: String,
-    #[garde(skip)]
-    pub mac_address: String,
-    #[garde(skip)]
-    pub gold: i32,
-    #[garde(skip)]
-    pub cash: i32,
-    #[garde(skip)]
-    pub ribbon: i32,
-    #[garde(skip)]
-    pub ensign: i32,
-    #[garde(skip)]
-    pub medal: i32,
-    #[garde(skip)]
-    pub master_medal: i32,
+    // #[garde(skip)]
+    // pub rank: Option<i32>,
+    // #[garde(skip)]
+    // pub ip4_address: Option<String>,
+    // #[garde(skip)]
+    // pub mac_address: Option<String>,
+    // #[garde(skip)]
+    // pub gold: Option<i32>,
+    // #[garde(skip)]
+    // pub cash: Option<i32>,
+    // #[garde(skip)]
+    // pub ribbon: Option<i32>,
+    // #[garde(skip)]
+    // pub ensign: Option<i32>,
+    // #[garde(skip)]
+    // pub medal: Option<i32>,
+    // #[garde(skip)]
+    // pub master_medal: Option<i32>,
 }
 
 impl SignupRequest {
