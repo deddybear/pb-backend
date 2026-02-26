@@ -1,33 +1,43 @@
 use crate::utils::errors::AppResult;
+use garde::Validate;
 use serde::{Deserialize, Serialize};
-use validator::Validate;
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct LoginRequest {
-    #[validate(length(min = 4, max = 16, message = "Name must be 4-16 characters"))]
+    #[garde(length(min = 4, max = 16))]
     pub username: String,
-    #[validate(length(min = 5, message = "Password must be at least 5 characters"))]
+    #[garde(length(min = 5))]
     pub password: String,
 }
 
-#[derive(Debug, Deserialize, Serialize,  Validate)]
+#[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct SignupRequest {
-    #[validate(length(min = 4, max = 16, message = "Name must be 4-16 characters"))]
+    #[garde(length(min = 4, max = 16))]
     pub username: String,
-    #[validate(email(message = "Email must be a valid email address"))]
+    #[garde(email)]
     pub email: String,
-    #[validate(length(min = 5, message = "Password must be at least 4 characters"))]
+    #[garde(length(min = 5))]
     pub password: String,
-    pub age: u8,
-    pub rank: u8,
+    #[garde(range(min = 5, max = 255))]
+    pub age: i32,
+    #[garde(skip)]
+    pub rank: Option<i32>,
+    #[garde(skip)]
     pub ip4_address: String,
+    #[garde(skip)]
     pub mac_address: String,
-    pub gold: u64,
-    pub cash: u64,
-    pub ribbon_count: u16,
-    pub ensign_count: u16,
-    pub medal_count: u16,
-    pub master_medal_count: u16,
+    #[garde(skip)]
+    pub gold: i32,
+    #[garde(skip)]
+    pub cash: i32,
+    #[garde(skip)]
+    pub ribbon: i32,
+    #[garde(skip)]
+    pub ensign: i32,
+    #[garde(skip)]
+    pub medal: i32,
+    #[garde(skip)]
+    pub master_medal: i32,
 }
 
 impl SignupRequest {
@@ -41,8 +51,3 @@ impl LoginRequest {
         Validate::validate(self).map_err(Into::into)
     }
 }
-
-
-
-
-

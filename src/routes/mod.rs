@@ -2,7 +2,7 @@ mod auth_route;
 mod inventory_route;
 
 use axum::{routing::get, Router};
-use crate::{AppState, utils::errors::fallback::{handler_404, handler_405}};
+use crate::{AppState, utils::fallback::{handler_404, handler_405}};
 
 async fn home() -> axum::Json<serde_json::Value> {
     axum::Json(serde_json::json!({

@@ -39,4 +39,3 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 garde = { version = "0.22.1", features = ["full"] }
 thiserror = "2.0.18"
-validator = { version = "0.20.0", features = ["derive"] }

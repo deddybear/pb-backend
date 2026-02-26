@@ -1,19 +1,15 @@
-pub mod extractors;
-pub mod fallback;
-
 use axum::{
-    extract::rejection::{JsonRejection, PathRejection, QueryRejection},
+    Json,
+    extract::rejection::{JsonDataError, JsonRejection, PathRejection, QueryRejection},
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 
+use garde::Report;
 use serde_json::json;
 use thiserror::Error;
-use validator::ValidationErrors;
 
 use crate::models::response_model::Template;
-
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -43,7 +39,7 @@ pub enum AppError {
 
     // ── 422 Unprocessable Entity ─────────────────────────────────────────────
     #[error("Validation failed")]
-    ValidationError(#[from] ValidationErrors),
+    ValidationError(#[from] Report),
 
     // ── Extractor errors (dari Axum) ─────────────────────────────────────────
     /// JSON body tidak valid / content-type salah
@@ -75,42 +71,41 @@ pub enum AppError {
 impl AppError {
     pub fn status_code(&self) -> StatusCode {
         match self {
-            Self::BadRequest(_)      => StatusCode::BAD_REQUEST,
-            Self::Unauthorized(_)    => StatusCode::UNAUTHORIZED,
-            Self::Forbidden(_)       => StatusCode::FORBIDDEN,
-            Self::NotFound(_)        => StatusCode::NOT_FOUND,
-            Self::Conflict(_)        => StatusCode::CONFLICT,
+            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::Unauthorized(_) => StatusCode::UNAUTHORIZED,
+            Self::Forbidden(_) => StatusCode::FORBIDDEN,
+            Self::NotFound(_) => StatusCode::NOT_FOUND,
+            Self::Conflict(_) => StatusCode::CONFLICT,
             Self::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
             Self::ValidationError(_) => StatusCode::UNPROCESSABLE_ENTITY,
-            Self::JsonError(e)       => e.status(),
-            Self::PathError(_)       => StatusCode::BAD_REQUEST,
-            Self::QueryError(_)      => StatusCode::BAD_REQUEST,
-            Self::DatabaseError(e)   => match e {
+            Self::JsonError(e) => e.status(),
+            Self::PathError(_) => StatusCode::BAD_REQUEST,
+            Self::QueryError(_) => StatusCode::BAD_REQUEST,
+            Self::DatabaseError(e) => match e {
                 sqlx::Error::RowNotFound => StatusCode::NOT_FOUND,
-                _                        => StatusCode::INTERNAL_SERVER_ERROR,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
             },
-            Self::JwtError(_)        => StatusCode::UNAUTHORIZED,
-            Self::IoError(_)         => StatusCode::INTERNAL_SERVER_ERROR,
-            Self::InternalError(_)   => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::JwtError(_) => StatusCode::UNAUTHORIZED,
+            Self::IoError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::InternalError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
     /// Pesan yang aman dikirim ke client — detail internal tidak di-expose.
     pub fn client_message(&self) -> String {
         match self {
-            Self::ValidationError(e) => {
-                let messages: Vec<String> = e
-                    .field_errors()
+            Self::ValidationError(report) => {
+                // garde::Report implements Display dengan format "field: message"
+                // kita iterate setiap error dan gabungkan
+                let messages: Vec<String> = report
                     .iter()
-                    .flat_map(|(field, errors)| {
-                        errors.iter().map(move |err| {
-                            let msg = err
-                                .message
-                                .as_ref()
-                                .map(|m| m.to_string())
-                                .unwrap_or_else(|| format!("Invalid value for '{}'", field));
-                            format!("{}: {}", field, msg)
-                        })
+                    .map(|(path, error)| {
+                        let field = path.to_string();
+                        if field.is_empty() {
+                            error.to_string()
+                        } else {
+                            format!("{}: {}", field, error)
+                        }
                     })
                     .collect();
                 messages.join(", ")
@@ -118,14 +113,17 @@ impl AppError {
             Self::JsonError(e) => {
                 // Berikan pesan yang helpful tapi tidak expose struktur internal
                 match e {
-                    JsonRejection::JsonDataError(_) =>
-                        "Request body has invalid field types or missing required fields".to_string() + e.to_string().as_str(),
-                    JsonRejection::JsonSyntaxError(_) =>
-                        "Request body contains invalid JSON syntax".to_string(),
-                    JsonRejection::MissingJsonContentType(_) =>
-                        "Content-Type header must be 'application/json'".to_string(),
-                    _ =>
-                        "Failed to parse request body".to_string(),
+                    JsonRejection::JsonDataError(_) => {
+                        "Request body has invalid field types or missing required fields : "
+                            .to_string() + e.to_string().as_str()
+                    }
+                    JsonRejection::JsonSyntaxError(_) => {
+                        "Request body contains invalid JSON syntax".to_string()
+                    }
+                    JsonRejection::MissingJsonContentType(_) => {
+                        "Content-Type header must be 'application/json'".to_string()
+                    }
+                    _ => "Failed to parse request body".to_string(),
                 }
             }
             Self::PathError(e) => {
@@ -156,7 +154,7 @@ impl AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let status  = self.status_code();
+        let status = self.status_code();
         let message = self.client_message();
 
         let body = json!(Template {
