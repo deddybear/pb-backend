@@ -1,5 +1,6 @@
 mod auth_route;
 mod inventory_route;
+mod account_route;
 
 use axum::{routing::get, Router};
 use crate::{AppState, utils::fallback::{handler_404, handler_405}};
