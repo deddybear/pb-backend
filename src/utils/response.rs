@@ -1,4 +1,15 @@
-use crate::models::response_model::{Template, TemplateWithData};
+use crate::models::response::general_response::{Template, TemplateWithData};
+
+/// Creates a basic HTTP response template with status code and message.
+///
+/// # Arguments
+///
+/// * `code` - HTTP status code (e.g., 200, 404, 500)
+/// * `message` - Response message string
+///
+/// # Returns
+///
+/// A `Template` struct containing the HTTP code and message
 
 pub fn create_response(code: u16, message: &str) -> Template {
     Template {
@@ -7,6 +18,17 @@ pub fn create_response(code: u16, message: &str) -> Template {
     }
 }
 
+/// Creates an HTTP response template with status code, message, and optional data payload.
+///
+/// # Arguments
+///
+/// * `code` - HTTP status code (e.g., 200, 404, 500)
+/// * `message` - Response message string
+/// * `data` - Optional JSON value containing response data
+///
+/// # Returns
+///
+/// A `TemplateWithData` struct containing the HTTP code, message, and response data
 pub fn create_response_with_data(
     code: u16,
     message: &str,
@@ -15,6 +37,6 @@ pub fn create_response_with_data(
     TemplateWithData {
         code_http: code,
         message: message.to_string(),
-        data,
+        response: data,
     }
 }

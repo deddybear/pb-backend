@@ -1,21 +1,25 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use bcrypt::{hash, verify};
 use serde_json::json;
 
 use crate::{
     AppState,
     models::{
-        auth_model::Account,
-        request::auth_request::{LoginRequest, SignupRequest},
+        auth_model::{Account, AccountRecovery},
+        request::auth_request::{AccountRecoveryRequest, LoginRequest, SignupRequest},
     },
     utils::{
+        courier,
         errors::{AppError, AppResult},
         extractors::AppJson,
         jwt::generate_token,
-        response::create_response_with_data,
+        response::{create_response, create_response_with_data},
     },
 };
 
+/// # Fungsi untuk login akun
+/// # URL : `{BASE_URL}/api/auth/login`
 pub async fn login(
     State(state): State<AppState>,
     AppJson(body): AppJson<LoginRequest>,
@@ -47,7 +51,10 @@ pub async fn login(
         &account.email,
         &account.access_level,
         &state.config.jwt_secret,
-    ).unwrap();
+    )
+    .unwrap();
+
+    let token_base_encode64 = BASE64_STANDARD.encode(token);
 
     Ok((
         StatusCode::CREATED,
@@ -55,13 +62,15 @@ pub async fn login(
             200,
             &"Login successful".to_string(),
             Some(json!({
-                "token" : token,
+                "token" : "Bearer ".to_string() + &token_base_encode64,
                 "data_account": account
             })),
         )),
     ))
 }
 
+/// # Fungsi untuk pendaftaran akun baru
+/// # URL : `{BASE_URL}/api/auth/signup`
 pub async fn sign_up(
     State(state): State<AppState>,
     AppJson(body): AppJson<SignupRequest>,
@@ -143,6 +152,70 @@ pub async fn sign_up(
             200,
             &"Signup successful".to_string(),
             Some(json!({"password_hash": password_hashed})),
+        )),
+    ))
+}
+
+/// # Fungsi diperuntukan untuk user yang lupa password
+/// # URL : `{BASE_URL}/api/auth/account-recovery`
+pub async fn account_recovery(
+    State(state): State<AppState>,
+    AppJson(body): AppJson<AccountRecoveryRequest>,
+) -> AppResult<impl IntoResponse> {
+    if state.config.smtp_enable == false {
+        return Ok((
+            StatusCode::OK,
+            Json(create_response(200, &"fiture tidak dibuka".to_string())),
+        ));
+    }
+
+    body.validate()?;
+
+    // check email dari username tersebut
+    let account = sqlx::query_as::<_, AccountRecovery>(
+        "
+        SELECT email, nickname
+        FROM accounts 
+        WHERE username = $1",
+    )
+    .bind(&body.username)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| AppError::Unauthorized("Invalid username".into()))?;
+
+    // jika account tidak mempunyai email
+    if account.email.is_empty() {
+        return Err(AppError::InternalError(
+            format!("Email dari akun ini kosong bro {}", &body.username).into(),
+        ));
+    }
+
+    // mendapatkan template email
+    // ! ini masih belum
+    let template_email = tokio::fs::read_to_string("/src/template/password_recovery.html")
+        .await
+        .map_err(|e| AppError::InternalError(format!("Gagal membaca template email : {}", e)))?;
+
+    // melakukan pengiriman email
+    courier::send_mail(
+        state.config.smtp_username.to_string(),
+        state.config.smtp_password.to_string(),
+        state.config.smtp_host.to_string(),
+        state.config.smtp_port,
+        "PB ITKI - Account Recovery".to_string(),
+        state.config.smtp_address_from.to_string(),
+        account.nickname,
+        account.email,
+        "Password Recovery".to_string(),
+        template_email,
+    )
+    .map_err(|e| AppError::InternalError(format!("Gagal mengirimkan email: {}", e)))?;
+
+    Ok((
+        StatusCode::OK,
+        Json(create_response(
+            200,
+            &"Password Baru anda telah dikirim melalui email yang terdaftar".to_string(),
         )),
     ))
 }

@@ -1,16 +1,25 @@
 use chrono::{Duration, Utc};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: String,    // user id
+    pub sub: String, // user id
     pub email: String,
     pub access_level: String,
     pub exp: i64,
     pub iat: i64,
 }
 
+/// JWT token claims structure containing user information and token metadata.
+///
+/// # Fields
+///
+/// * `sub` - Subject claim containing the user ID as a string
+/// * `email` - User's email address
+/// * `access_level` - User's access level permission
+/// * `exp` - Token expiration time as Unix timestamp
+/// * `iat` - Token issued-at time as Unix timestamp
 pub fn generate_token(
     user_id: &i64,
     email: &str,

@@ -23,3 +23,9 @@ pub struct Account {
     // pub medal_count: i16,
     // pub master_medal_count: i16,
 }
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct AccountRecovery {
+    pub email: String,
+    pub nickname: String
+}

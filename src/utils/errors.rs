@@ -1,6 +1,6 @@
 use axum::{
     Json,
-    extract::rejection::{JsonDataError, JsonRejection, PathRejection, QueryRejection},
+    extract::rejection::{ JsonRejection, PathRejection, QueryRejection},
     http::StatusCode,
     response::{IntoResponse, Response},
 };
@@ -9,7 +9,7 @@ use garde::Report;
 use serde_json::json;
 use thiserror::Error;
 
-use crate::models::response_model::Template;
+use crate::models::response::general_response::Template;
 
 #[derive(Error, Debug)]
 pub enum AppError {

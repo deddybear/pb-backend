@@ -40,6 +40,18 @@ pub struct SignupRequest {
     // pub master_medal: Option<i32>,
 }
 
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct AccountRecoveryRequest {
+    #[garde(length(min = 4, max = 16))]
+    pub username: String
+}
+
+impl AccountRecoveryRequest {
+    pub fn validate(&self) -> AppResult<()> {
+        Validate::validate(self).map_err(Into::into)
+    }
+}
+
 impl SignupRequest {
     pub fn validate(&self) -> AppResult<()> {
         Validate::validate(self).map_err(Into::into)

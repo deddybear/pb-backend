@@ -1,8 +1,8 @@
 mod handlers;
+mod middlewares;
 mod models;
 mod routes;
 mod utils;
-mod middlewares;
 
 use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;

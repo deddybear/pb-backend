@@ -1,15 +1,15 @@
-use::serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Template {
     pub code_http: u16,
     pub message: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct TemplateWithData {
     pub code_http: u16,
     pub message: String,
-    pub data: Option<Value>,
+    pub response: Option<Value>,
 }
