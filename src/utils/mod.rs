@@ -5,3 +5,4 @@ pub mod extractors;
 pub mod fallback;
 pub mod jwt;
 pub mod courier;
+pub mod rand;

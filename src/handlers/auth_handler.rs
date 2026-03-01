@@ -14,18 +14,21 @@ use crate::{
         errors::{AppError, AppResult},
         extractors::AppJson,
         jwt::generate_token,
+        rand,
         response::{create_response, create_response_with_data},
     },
 };
 
-/// # Fungsi untuk login akun
+/// # Feature for login account
 /// # URL : `{BASE_URL}/api/auth/login`
 pub async fn login(
     State(state): State<AppState>,
     AppJson(body): AppJson<LoginRequest>,
 ) -> AppResult<impl IntoResponse> {
+    // validation request
     body.validate()?;
 
+    // checking account
     let account = sqlx::query_as::<_, Account>(
         "
         SELECT player_id, username, password, email, age, 
@@ -39,13 +42,16 @@ pub async fn login(
     .await?
     .ok_or_else(|| AppError::Unauthorized("Invalid username".into()))?;
 
+    // verify password from input client with password in database
     let result_verify_password = verify(&body.password, &account.password)
         .map_err(|e| AppError::InternalError(e.to_string()))?;
 
+    // when result verify password is false
     if result_verify_password == false {
         return Err(AppError::Unauthorized("Invalid password".into()));
     }
 
+    // generate token
     let token = generate_token(
         &account.player_id,
         &account.email,
@@ -54,6 +60,7 @@ pub async fn login(
     )
     .unwrap();
 
+    // base encode
     let token_base_encode64 = BASE64_STANDARD.encode(token);
 
     Ok((
@@ -69,20 +76,23 @@ pub async fn login(
     ))
 }
 
-/// # Fungsi untuk pendaftaran akun baru
+/// # feature for register new account
 /// # URL : `{BASE_URL}/api/auth/signup`
 pub async fn sign_up(
     State(state): State<AppState>,
     AppJson(body): AppJson<SignupRequest>,
 ) -> AppResult<impl IntoResponse> {
+    // validation req
     body.validate()?;
 
+    // check username already used or not
     let count_username =
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM accounts WHERE username = $1")
             .bind(&body.username)
             .fetch_one(&state.db)
             .await?;
 
+    // if username already used
     if count_username > 0 {
         return Err(AppError::Conflict(
             format!(
@@ -93,12 +103,14 @@ pub async fn sign_up(
         ));
     }
 
+    // check email already used or not
     let count_email =
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM accounts WHERE email = $1")
             .bind(&body.email)
             .fetch_one(&state.db)
             .await?;
 
+    // if email already used
     if count_email > 0 {
         return Err(AppError::Conflict(
             format!(
@@ -109,18 +121,25 @@ pub async fn sign_up(
         ));
     }
 
+    // hashing passowrd
     let password_hashed =
         hash(&body.password, 15).map_err(|e| AppError::InternalError(e.to_string()))?;
 
+    // database transaction
     let mut tx = state.db.begin().await?;
 
+    // insert new account in database
     sqlx::query(
         "INSERT INTO accounts (username, password, email, age, rank, experience, cash, gold, tags, pc_cafe) 
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
     )
+    //username
     .bind(&body.username)
+    //password
     .bind(&password_hashed)
+    //email
     .bind(&body.email)
+    //age
     .bind(&body.age)
     //rank
     .bind(31)
@@ -144,6 +163,7 @@ pub async fn sign_up(
         }
     })?;
 
+    // db transaction commited
     tx.commit().await?;
 
     Ok((
@@ -156,22 +176,27 @@ pub async fn sign_up(
     ))
 }
 
-/// # Fungsi diperuntukan untuk user yang lupa password
+/// # feature for forgot password
 /// # URL : `{BASE_URL}/api/auth/account-recovery`
 pub async fn account_recovery(
     State(state): State<AppState>,
     AppJson(body): AppJson<AccountRecoveryRequest>,
 ) -> AppResult<impl IntoResponse> {
+    // check env feature smtp is enable or not
     if state.config.smtp_enable == false {
         return Ok((
             StatusCode::OK,
-            Json(create_response(200, &"fiture tidak dibuka".to_string())),
+            Json(create_response(
+                200,
+                &"feature not opened yet !".to_string(),
+            )),
         ));
     }
 
+    // validation req
     body.validate()?;
 
-    // check email dari username tersebut
+    // check email from the username when not found will return response error
     let account = sqlx::query_as::<_, AccountRecovery>(
         "
         SELECT email, nickname
@@ -183,20 +208,51 @@ pub async fn account_recovery(
     .await?
     .ok_or_else(|| AppError::Unauthorized("Invalid username".into()))?;
 
-    // jika account tidak mempunyai email
+    // when account doesn't have email
     if account.email.is_empty() {
         return Err(AppError::InternalError(
-            format!("Email dari akun ini kosong bro {}", &body.username).into(),
+            format!(
+                "Email for this username are empty ! please call the administrator {}",
+                &body.username
+            )
+            .into(),
         ));
     }
 
-    // mendapatkan template email
-    // ! ini masih belum
-    let template_email = tokio::fs::read_to_string("/src/template/password_recovery.html")
+    // create new password randomize
+    let new_password = rand::random_string(16, true, true, true).unwrap();
+
+    // melakukan update password
+    // hashing password
+    let password_hashed =
+        hash(&new_password, 15).map_err(|e| AppError::InternalError(e.to_string()))?;
+
+    // database transaction
+    let mut tx = state.db.begin().await?;
+
+    // update password account from db
+    sqlx::query(
+        "UPDATE accounts 
+              SET password = $1",
+    )
+    //password
+    .bind(&password_hashed)
+    .execute(&mut *tx)
+    .await
+    .map_err(|e| AppError::DatabaseError(e))?;
+
+    // db transaction commited
+    tx.commit().await.map_err(|e| AppError::DatabaseError(e))?;
+
+    // encode new password
+    let new_password_encode64 = BASE64_STANDARD.encode(new_password);
+
+    // get template email html
+    let template_email = tokio::fs::read_to_string("./src/template/password_recovery.html")
         .await
         .map_err(|e| AppError::InternalError(format!("Gagal membaca template email : {}", e)))?;
 
-    // melakukan pengiriman email
+    // send email
     courier::send_mail(
         state.config.smtp_username.to_string(),
         state.config.smtp_password.to_string(),
@@ -207,6 +263,7 @@ pub async fn account_recovery(
         account.nickname,
         account.email,
         "Password Recovery".to_string(),
+        new_password_encode64,
         template_email,
     )
     .map_err(|e| AppError::InternalError(format!("Gagal mengirimkan email: {}", e)))?;

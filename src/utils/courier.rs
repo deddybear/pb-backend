@@ -44,8 +44,8 @@ use std::collections::HashMap;
 /// );
 /// ```
 pub fn send_mail(
-    username: String,
-    password: String,
+    username_smtp: String,
+    password_smtp: String,
     host_smtp: String,
     port_smtp: u16,
     name_from: String,
@@ -53,19 +53,31 @@ pub fn send_mail(
     name_to: String,
     email_to: String,
     subject: String,
-    template_email: String,
+    password_user_enc64: String,
+    content_email: String,
 ) -> Result<(), Box<dyn Error>> {
+
+    let mut variables: HashMap<&str, &str> = HashMap::new();
+
+    variables.insert("nickname", &name_to);
+    variables.insert("new_password", &password_user_enc64);
+    variables.insert("email_user", &email_to);
+    variables.insert("email_support", &email_from);
+    variables.insert("year_now", "2026");
+
+    let html_content = render_template(&content_email, &variables);
+
     let email = Message::builder()
         .from(Mailbox::new(Some(name_from), email_from.parse().unwrap()))
         .to(Mailbox::new(Some(name_to), email_to.parse().unwrap()))
         .subject(subject)
-        .multipart(MultiPart::alternative().singlepart(SinglePart::html(template_email)))
+        .multipart(MultiPart::alternative().singlepart(SinglePart::html(html_content)))
         .unwrap();
 
-    let creds = Credentials::new(username, password);
+    // create credential to smtp gmail
+    let creds = Credentials::new(username_smtp, password_smtp);
 
     // Open a remote connection to gmail
-
     let mailer = SmtpTransport::relay(&host_smtp)
         .unwrap()
         .port(port_smtp)
@@ -79,9 +91,7 @@ pub fn send_mail(
     }
 }
 
-// ============================================================
-// Fungsi render template — simple string replace
-// ============================================================
+/// Fungsi render template — simple string replace
 fn render_template(template: &str, vars: &HashMap<&str, &str>) -> String {
     let mut result = template.to_string();
     for (key, value) in vars {
