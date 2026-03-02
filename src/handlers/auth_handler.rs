@@ -184,13 +184,7 @@ pub async fn account_recovery(
 ) -> AppResult<impl IntoResponse> {
     // check env feature smtp is enable or not
     if state.config.smtp_enable == false {
-        return Ok((
-            StatusCode::NOT_FOUND,
-            Json(create_response(
-                404,
-                &"feature not opened yet !".to_string(),
-            )),
-        ));
+        return Err(AppError::Forbidden("feature not opened yet !".to_string()));
     }
 
     // validation req

@@ -1,10 +1,14 @@
+/// feature is for shop
+/// top up cash, gold, tag
+/// top up ribbon, ensign, medal, master_medal
+/// buy weapon
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use serde_json::json;
 
 use crate::{
     AppState,
     models::{
-        inventory_model::{StateAccountMoney, StateAccountMedal},
+        inventory_model::{StateAccountMedal, StateAccountMoney},
         request::inventory_request::{TopUpMedalRequest, TopUpMoneyRequest},
     },
     utils::{
@@ -15,13 +19,11 @@ use crate::{
 };
 
 // feature next on
-// read inventory
-// delete item from inventory
-// read detail item
+// top up cash, gold, tag
+// top up ribbon, ensign, medal, master_medal
 
 /// # Feature for top up cash, gold and tag
 /// # URL : `{BASE_URL}/api/inventory/top-up-money`
-/// ! move to shop handler
 pub async fn top_up_money(
     State(state): State<AppState>,
     AppJson(body): AppJson<TopUpMoneyRequest>,
@@ -75,7 +77,6 @@ pub async fn top_up_money(
 
 /// # Feature for top up medal
 /// # URL : `{BASE_URL}/api/inventory/top-up-medal`
-/// ! move to shop handler
 pub async fn top_up_medal(
     State(state): State<AppState>,
     AppJson(body): AppJson<TopUpMedalRequest>,
