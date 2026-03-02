@@ -64,7 +64,7 @@ pub async fn login(
     let token_base_encode64 = BASE64_STANDARD.encode(token);
 
     Ok((
-        StatusCode::CREATED,
+        StatusCode::OK,
         Json(create_response_with_data(
             200,
             &"Login successful".to_string(),
@@ -164,12 +164,12 @@ pub async fn sign_up(
     })?;
 
     // db transaction commited
-    tx.commit().await?;
+    tx.commit().await.map_err(|e| AppError::DatabaseError(e))?;
 
     Ok((
-        StatusCode::OK,
+        StatusCode::CREATED,
         Json(create_response_with_data(
-            200,
+            201,
             &"Signup successful".to_string(),
             Some(json!({"password_hash": password_hashed})),
         )),
@@ -185,9 +185,9 @@ pub async fn account_recovery(
     // check env feature smtp is enable or not
     if state.config.smtp_enable == false {
         return Ok((
-            StatusCode::OK,
+            StatusCode::NOT_FOUND,
             Json(create_response(
-                200,
+                404,
                 &"feature not opened yet !".to_string(),
             )),
         ));
