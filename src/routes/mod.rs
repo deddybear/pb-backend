@@ -1,4 +1,5 @@
 mod auth_route;
+mod shop_route;
 mod inventory_route;
 mod account_route;
 
@@ -28,6 +29,7 @@ pub fn init_routes(state: AppState) -> Router {
         .route("/health", get(health_check))
         .nest("/api/auth", auth_route::router(state.clone()))
         .nest("/api/inventory", inventory_route::router(state.clone()))
+        .nest("/api/shop", shop_route::router(state.clone()))
         .nest("/api/account", account_route::router(state.clone()))
         .fallback(handler_404)
         .method_not_allowed_fallback(handler_405)

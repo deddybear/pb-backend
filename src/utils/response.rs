@@ -1,4 +1,4 @@
-use crate::models::response::general_response::{Template, TemplateWithData};
+use crate::http::response::general_response::{Template, TemplateWithData};
 
 /// Creates a basic HTTP response template with status code and message.
 ///

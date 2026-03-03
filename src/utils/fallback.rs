@@ -4,7 +4,7 @@ use axum::{
     Json,
 };
 
-use crate::models::response::general_response::Template;
+use crate::http::response::general_response::Template;
 
 
 /// Handles 404 Not Found errors for undefined routes.

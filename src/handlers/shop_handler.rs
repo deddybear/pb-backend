@@ -7,10 +7,8 @@ use serde_json::json;
 
 use crate::{
     AppState,
-    models::{
-        inventory_model::{StateAccountMedal, StateAccountMoney},
-        request::inventory_request::{TopUpMedalRequest, TopUpMoneyRequest},
-    },
+    http::request::shop_request::{BuyWeaponRequest, TopUpMedalRequest, TopUpMoneyRequest},
+    models::inventory_model::{StateAccountMedal, StateAccountMoney},
     utils::{
         errors::{AppError, AppResult},
         extractors::AppJson,
@@ -125,6 +123,21 @@ pub async fn top_up_medal(
         Json(create_response(
             200,
             &format!("Top up {} berhasil", body.top_up_type),
+        )),
+    ))
+}
+
+/// # Feature for buy weapon
+/// # URL : `{BASE_URL}/api/inventory/buy-weapon`
+pub async fn buy_weapon(
+    State(state): State<AppState>,
+    AppJson(body): AppJson<BuyWeaponRequest>,
+) -> AppResult<impl IntoResponse> {
+    Ok((
+        StatusCode::OK,
+        Json(create_response(
+            200,
+            &format!("Berhasil Membeli Item"),
         )),
     ))
 }

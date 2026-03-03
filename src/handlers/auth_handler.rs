@@ -5,10 +5,8 @@ use serde_json::json;
 
 use crate::{
     AppState,
-    models::{
-        auth_model::{Account, AccountRecovery},
-        request::auth_request::{AccountRecoveryRequest, LoginRequest, SignupRequest},
-    },
+    http::request::auth_request::{AccountRecoveryRequest, LoginRequest, SignupRequest},
+    models::auth_model::{Account, AccountRecovery},
     utils::{
         courier,
         errors::{AppError, AppResult},

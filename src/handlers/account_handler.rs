@@ -1,5 +1,4 @@
 // feature next on
-
 // update password, email
 
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
@@ -7,7 +6,7 @@ use serde_json::json;
 
 use crate::{
     AppState,
-    models::request::account_request::{ChangeEmail, ChangePassword},
+    http::request::account_request::{ChangeEmail, ChangePassword},
     utils::{
         errors::{AppError, AppResult},
         extractors::AppJson,

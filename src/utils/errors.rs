@@ -9,7 +9,7 @@ use garde::Report;
 use serde_json::json;
 use thiserror::Error;
 
-use crate::models::response::general_response::Template;
+use crate::http::response::general_response::Template;
 
 #[derive(Error, Debug)]
 pub enum AppError {
