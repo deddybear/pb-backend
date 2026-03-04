@@ -47,3 +47,9 @@ impl TopUpMedalRequest {
         Validate::validate(self).map_err(Into::into)
     }
 }
+
+impl BuyWeaponRequest {
+    pub fn validate(&self) -> AppResult<()> {
+        Validate::validate(self).map_err(Into::into)
+    }
+}

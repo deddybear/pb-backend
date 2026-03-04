@@ -133,6 +133,9 @@ pub async fn buy_weapon(
     State(state): State<AppState>,
     AppJson(body): AppJson<BuyWeaponRequest>,
 ) -> AppResult<impl IntoResponse> {
+
+    body.validate()?;
+
     Ok((
         StatusCode::OK,
         Json(create_response(
