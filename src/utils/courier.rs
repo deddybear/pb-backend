@@ -1,9 +1,11 @@
-use std::error::Error;
 use lettre::message::Mailbox;
 use lettre::message::{MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
 use std::collections::HashMap;
+use std::error::Error;
+use crate::utils::errors::AppError;
+
 
 /// Sends an email with HTML content via SMTP.
 ///
@@ -56,7 +58,6 @@ pub fn send_mail(
     password_user_enc64: String,
     content_email: String,
 ) -> Result<(), Box<dyn Error>> {
-
     let mut variables: HashMap<&str, &str> = HashMap::new();
 
     variables.insert("nickname", &name_to);
@@ -68,11 +69,13 @@ pub fn send_mail(
     let html_content = render_template(&content_email, &variables);
 
     let email = Message::builder()
-        .from(Mailbox::new(Some(name_from), email_from.parse().unwrap()))
-        .to(Mailbox::new(Some(name_to), email_to.parse().unwrap()))
+        .from(Mailbox::new(Some(name_from), email_from.parse()?))
+        .to(Mailbox::new(Some(name_to), email_to.parse()?))
         .subject(subject)
         .multipart(MultiPart::alternative().singlepart(SinglePart::html(html_content)))
-        .unwrap();
+        .map_err(|e| AppError::InternalError(format!("Email build error: {}", e)))?;
+
+    
 
     // create credential to smtp gmail
     let creds = Credentials::new(username_smtp, password_smtp);
@@ -87,7 +90,7 @@ pub fn send_mail(
     // Send the email
     match mailer.send(&email) {
         Ok(_) => Ok(()),
-        Err(e) => Err(Box::new(e))
+        Err(e) => Err(Box::new(e)),
     }
 }
 

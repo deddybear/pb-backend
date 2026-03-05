@@ -1,24 +1,19 @@
-/// feature is for shop
-/// top up cash, gold, tag
-/// top up ribbon, ensign, medal, master_medal
-/// buy weapon
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
-use serde_json::json;
-
 use crate::{
     AppState,
-    http::request::shop_request::{BuyWeaponRequest, TopUpMedalRequest, TopUpMoneyRequest},
-    models::inventory_model::{StateAccountMedal, StateAccountMoney},
+    http::{query_params::shop_query_params::ListShopWeaponQuery, request::shop_request::{BuyWeaponRequest, TopUpMedalRequest, TopUpMoneyRequest}},
+    models::{inventory_model::{StateAccountMedal, StateAccountMoney}, shop_model::ShopWeapon},
     utils::{
         errors::{AppError, AppResult},
-        extractors::AppJson,
+        extractors::{AppJson, AppQuery},
         response::{create_response, create_response_with_data},
     },
 };
 
-// feature next on
-// top up cash, gold, tag
-// top up ribbon, ensign, medal, master_medal
+/// feature is for shop
+/// top up cash, gold, tag
+/// top up ribbon, ensign, medal, master_medal
+/// buy weapon, chara, head
 
 /// # Feature for top up cash, gold and tag
 /// # URL : `{BASE_URL}/api/inventory/top-up-money`
@@ -127,20 +122,69 @@ pub async fn top_up_medal(
     ))
 }
 
+/// # Feature for get list shop weapon primary
+/// # URL : `{BASE_URL}/api/inventory/list-weapon-primary`
+pub async fn list_shop_weapon_primary(
+    State(state): State<AppState>,
+    AppQuery(query): AppQuery<ListShopWeaponQuery>,
+) -> AppResult<impl IntoResponse> {
+    let page = query.page.unwrap_or(1).max(1);
+    let limit = query.limit.unwrap_or(10).clamp(1, 100);
+    let offset = (page - 1) * limit;
+
+    let list_data_weapon = if let Some(ref search) = query.search {
+        let pattern = format!("%{}%", search);
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_primary_weapon_shop WHERE item_name ilike $1
+        ORDER BY item_nam ASC LIMIT $2 OFFSET $3",
+        )
+        .bind(&pattern)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    } else {
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_primary_weapon_shop
+        ORDER BY item_nam ASC LIMIT $2 OFFSET $3",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    };
+
+    Ok((
+        StatusCode::OK,
+        Json(
+            create_response_with_data(
+                200, 
+                "success",
+                serde_json::json!({
+                    "meta": {"page": page, "limit": limit},
+                    "data": list_data_weapon
+                }).into()
+            )
+        ),
+    ))
+}
+
 /// # Feature for buy weapon
 /// # URL : `{BASE_URL}/api/inventory/buy-weapon`
 pub async fn buy_weapon(
     State(state): State<AppState>,
     AppJson(body): AppJson<BuyWeaponRequest>,
 ) -> AppResult<impl IntoResponse> {
-
     body.validate()?;
 
     Ok((
         StatusCode::OK,
-        Json(create_response(
-            200,
-            &format!("Berhasil Membeli Item"),
-        )),
+        Json(create_response(200, &format!("Berhasil Membeli Item"))),
     ))
 }
+
+pub async fn buy_chara() {}
+
+pub async fn buy_head() {}
