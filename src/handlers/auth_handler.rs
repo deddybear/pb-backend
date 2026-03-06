@@ -76,6 +76,48 @@ pub async fn login(
     ))
 }
 
+/// # Feature for login account
+/// # URL : `{BASE_URL}/api/auth/login-app`
+pub async fn login_app(
+    State(state): State<AppState>,
+    AppJson(body): AppJson<LoginRequest>,
+) -> AppResult<impl IntoResponse> {
+    // validation request
+    body.validate()?;
+
+    // checking account
+    let account = sqlx::query_as::<_, Account>(
+        "
+        SELECT player_id, username, password, email, age, 
+               rank, gold, cash, experience, nickname, pc_cafe, access_level,
+               create_time, update_time 
+        FROM accounts 
+        WHERE username = $1",
+    )
+    .bind(&body.username)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| AppError::Unauthorized("Invalid username".into()))?;
+
+    // verify password from input client with password in database
+    let result_verify_password = verify(&body.password, &account.password)
+        .map_err(|e| AppError::InternalError(e.to_string()))?;
+
+    // when result verify password is false
+    if result_verify_password == false {
+        return Err(AppError::Unauthorized("Invalid password".into()));
+    }
+
+    Ok((
+        StatusCode::OK,
+        Json(create_response(
+            200,
+            &"Login successful".to_string()
+        )),
+    ))
+}
+
+
 /// # feature for register new account
 /// # URL : `{BASE_URL}/api/auth/signup`
 pub async fn sign_up(
