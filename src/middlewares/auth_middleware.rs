@@ -8,14 +8,9 @@ use axum::{
 
 use base64::{Engine, prelude::BASE64_STANDARD};
 
-use crate::{utils::errors::AppError, utils::jwt::verify_token, AppState};
+use crate::{AppState, models::auth_model::AuthUser, utils::{errors::AppError, jwt::verify_token}};
 
-#[derive(Debug, Clone)]
-pub struct AuthUser {
-    pub id: String,
-    pub email: String,
-    pub access_level: String,
-}
+
 
 /// # Fungsi middleware untuk pengecheckan apakah sudah login atau belum
 pub async fn require_auth(
@@ -29,9 +24,9 @@ pub async fn require_auth(
         .and_then(|h| h.to_str().ok())
         .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".into()))?;
 
-    let token_base64 = auth_header
-        .strip_prefix("Bearer ")
-        .ok_or_else(|| AppError::Unauthorized("Invalid token format. Use: Bearer <token>".into()))?;
+    let token_base64 = auth_header.strip_prefix("Bearer ").ok_or_else(|| {
+        AppError::Unauthorized("Invalid token format. Use: Bearer <token>".into())
+    })?;
 
     let token_bytes = BASE64_STANDARD.decode(token_base64).unwrap();
 
@@ -39,6 +34,7 @@ pub async fn require_auth(
 
     let claims = verify_token(&token, &state.config.jwt_secret)
         .map_err(|_| AppError::Unauthorized("Invalid or expired token".into()))?;
+
 
     req.extensions_mut().insert(AuthUser {
         id: claims.sub,

@@ -1,11 +1,11 @@
+use crate::AppState;
+use crate::utils::errors::AppError;
 use lettre::message::Mailbox;
 use lettre::message::{MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
 use std::collections::HashMap;
 use std::error::Error;
-use crate::utils::errors::AppError;
-
 
 /// Sends an email with HTML content via SMTP.
 ///
@@ -46,44 +46,31 @@ use crate::utils::errors::AppError;
 /// );
 /// ```
 pub fn send_mail(
-    username_smtp: String,
-    password_smtp: String,
-    host_smtp: String,
-    port_smtp: u16,
+    state: AppState,
     name_from: String,
-    email_from: String,
     name_to: String,
     email_to: String,
     subject: String,
-    password_user_enc64: String,
     content_email: String,
 ) -> Result<(), Box<dyn Error>> {
-    let mut variables: HashMap<&str, &str> = HashMap::new();
-
-    variables.insert("nickname", &name_to);
-    variables.insert("new_password", &password_user_enc64);
-    variables.insert("email_user", &email_to);
-    variables.insert("email_support", &email_from);
-    variables.insert("year_now", "2026");
-
-    let html_content = render_template(&content_email, &variables);
-
+    // init email
     let email = Message::builder()
-        .from(Mailbox::new(Some(name_from), email_from.parse()?))
+        .from(Mailbox::new(Some(name_from),state.config.smtp_address_from.parse()?))
         .to(Mailbox::new(Some(name_to), email_to.parse()?))
         .subject(subject)
-        .multipart(MultiPart::alternative().singlepart(SinglePart::html(html_content)))
-        .map_err(|e| AppError::InternalError(format!("Email build error: {}", e)))?;
-
-    
+        .multipart(MultiPart::alternative().singlepart(SinglePart::html(content_email)))
+        .map_err(|e| AppError::InternalError(format!("Email build error: {}", e.to_string())))?;
 
     // create credential to smtp gmail
-    let creds = Credentials::new(username_smtp, password_smtp);
+    let creds = Credentials::new(
+        state.config.smtp_username.clone(),
+        state.config.smtp_password.clone(),
+    );
 
     // Open a remote connection to gmail
-    let mailer = SmtpTransport::relay(&host_smtp)
+    let mailer = SmtpTransport::relay(&state.config.smtp_host)
         .unwrap()
-        .port(port_smtp)
+        .port(state.config.smtp_port)
         .credentials(creds)
         .build();
 
@@ -95,7 +82,7 @@ pub fn send_mail(
 }
 
 /// Fungsi render template — simple string replace
-fn render_template(template: &str, vars: &HashMap<&str, &str>) -> String {
+pub fn render_template(template: &str, vars: &HashMap<&str, &str>) -> String {
     let mut result = template.to_string();
     for (key, value) in vars {
         let placeholder = format!("{{{{{}}}}}", key); // menghasilkan {{key}}

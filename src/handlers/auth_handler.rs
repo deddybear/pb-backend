@@ -1,13 +1,15 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use base64::{Engine, prelude::BASE64_STANDARD};
+use std::collections::HashMap;
 use bcrypt::{hash, verify};
 use serde_json::json;
 
 use crate::{
     AppState,
     http::request::auth_request::{AccountRecoveryRequest, LoginRequest, SignupRequest},
-    models::auth_model::{Account, AccountRecovery},
+    models::account_model::{Account, AccountPasswordReset},
     utils::{
+        datetime,
         courier,
         errors::{AppError, AppResult},
         extractors::AppJson,
@@ -175,8 +177,8 @@ pub async fn sign_up(
 }
 
 /// # feature for forgot password
-/// # URL : `{BASE_URL}/api/auth/account-recovery`
-pub async fn account_recovery(
+/// # URL : `{BASE_URL}/api/auth/password-reset`
+pub async fn password_reset(
     State(state): State<AppState>,
     AppJson(body): AppJson<AccountRecoveryRequest>,
 ) -> AppResult<impl IntoResponse> {
@@ -189,9 +191,9 @@ pub async fn account_recovery(
     body.validate()?;
 
     // check email from the username when not found will return response error
-    let account = sqlx::query_as::<_, AccountRecovery>(
+    let account = sqlx::query_as::<_, AccountPasswordReset>(
         "
-        SELECT email, nickname
+        SELECT player_id, email, nickname
         FROM accounts 
         WHERE username = $1",
     )
@@ -214,7 +216,6 @@ pub async fn account_recovery(
     // create new password randomize
     let new_password = rand::random_string(16, true, true, true).unwrap();
 
-    // melakukan update password
     // hashing password
     let password_hashed =
         hash(&new_password, 15).map_err(|e| AppError::InternalError(e.to_string()))?;
@@ -225,10 +226,13 @@ pub async fn account_recovery(
     // update password account from db
     sqlx::query(
         "UPDATE accounts 
-              SET password = $1",
+              SET password = $1,
+                  update_time = NOW()
+              WHERE player_id = $2",
     )
     //password
     .bind(&password_hashed)
+    .bind(account.player_id)
     .execute(&mut *tx)
     .await
     .map_err(|e| AppError::DatabaseError(e))?;
@@ -240,23 +244,33 @@ pub async fn account_recovery(
     let new_password_encode64 = BASE64_STANDARD.encode(new_password);
 
     // get template email html
-    let template_email = tokio::fs::read_to_string("./src/template/password_recovery.html")
+    let template_email = tokio::fs::read_to_string("./src/template/password_reset.html")
         .await
         .map_err(|e| AppError::InternalError(format!("Gagal membaca template email : {}", e)))?;
 
+    // set variable for email
+    let mut variables: HashMap<&str, &str> = HashMap::new();
+    let year_now = datetime::get_year_now().to_string();
+    let email_support = &state.config.smtp_address_from.to_string();
+
+
+    variables.insert("nickname", &account.nickname);
+    variables.insert("new_password", &new_password_encode64);
+    variables.insert("email_user", &account.email);
+    variables.insert("email_support", &email_support);
+    variables.insert("year_now", &year_now);
+
+    // insign variable
+    let email_content = courier::render_template(&template_email, &variables);
+
     // send email
     courier::send_mail(
-        state.config.smtp_username.to_string(),
-        state.config.smtp_password.to_string(),
-        state.config.smtp_host.to_string(),
-        state.config.smtp_port,
-        "PB ITKI - Account Recovery".to_string(),
-        state.config.smtp_address_from.to_string(),
+        state,
+        "PB ITKI - Password Reset".to_string(),
         account.nickname,
         account.email,
-        "Password Recovery".to_string(),
-        new_password_encode64,
-        template_email,
+        "Password Reset".to_string(),
+        email_content,
     )
     .map_err(|e| AppError::InternalError(format!("Gagal mengirimkan email: {}", e)))?;
 

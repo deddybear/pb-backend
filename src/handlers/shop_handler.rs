@@ -1,14 +1,20 @@
-use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use crate::{
     AppState,
-    http::{query_params::shop_query_params::ListShopWeaponQuery, request::shop_request::{BuyWeaponRequest, TopUpMedalRequest, TopUpMoneyRequest}},
-    models::{inventory_model::{StateAccountMedal, StateAccountMoney}, shop_model::ShopWeapon},
+    http::{
+        query_params::shop_query_params::ListShopWeaponQuery,
+        request::shop_request::{BuyWeaponRequest, TopUpMedalRequest, TopUpMoneyRequest},
+    },
+    models::{
+        inventory_model::{StateAccountMedal, StateAccountMoney},
+        shop_model::ShopWeapon,
+    },
     utils::{
         errors::{AppError, AppResult},
         extractors::{AppJson, AppQuery},
         response::{create_response, create_response_with_data},
     },
 };
+use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 
 /// feature is for shop
 /// top up cash, gold, tag
@@ -80,7 +86,7 @@ pub async fn top_up_medal(
 
     // !property perlu di adjust
     let current_account = sqlx::query_as::<_, StateAccountMedal>(
-        "SELECT cash, gold, tag FROM account WHERE player_id = $1 FOR UPDATE",
+        "SELECT ribbon, ensign, medal, master_medal FROM account WHERE player_id = $1 FOR UPDATE",
     )
     .bind(body.player_id)
     .fetch_optional(&mut *tx)
@@ -88,9 +94,10 @@ pub async fn top_up_medal(
     .ok_or_else(|| AppError::NotFound("current account not found".into()))?;
 
     let update_value = match body.top_up_type.as_str() {
-        "cash" => body.value + current_account.cash,
-        "gold" => body.value + current_account.gold,
-        "tag" => body.value + current_account.tag,
+        "ribbon" => body.value + current_account.ribbon,
+        "ensign" => body.value + current_account.ensign,
+        "medal" => body.value + current_account.medal,
+        "master_medal" => body.value + current_account.master_medal,
         _ => return Err(AppError::BadRequest("type top up not found".into())),
     };
 
@@ -133,13 +140,16 @@ pub async fn list_shop_weapon_primary(
     let offset = (page - 1) * limit;
 
     let list_data_weapon = if let Some(ref search) = query.search {
+
         let pattern = format!("%{}%", search);
         sqlx::query_as::<_, ShopWeapon>(
             "
-        SELECT * FROM view_primary_weapon_shop WHERE item_name ilike $1
-        ORDER BY item_nam ASC LIMIT $2 OFFSET $3",
+        SELECT * FROM view_primary_weapon_shop 
+        WHERE item_name ilike $1
+        AND item_visible = true
+        ORDER BY item_name ASC LIMIT $2 OFFSET $3",
         )
-        .bind(&pattern)
+        .bind(pattern)
         .bind(limit)
         .bind(offset)
         .fetch_all(&state.db)
@@ -148,7 +158,8 @@ pub async fn list_shop_weapon_primary(
         sqlx::query_as::<_, ShopWeapon>(
             "
         SELECT * FROM view_primary_weapon_shop
-        ORDER BY item_nam ASC LIMIT $2 OFFSET $3",
+        WHERE item_visible = true
+        ORDER BY item_name ASC LIMIT $1 OFFSET $2",
         )
         .bind(limit)
         .bind(offset)
@@ -158,33 +169,324 @@ pub async fn list_shop_weapon_primary(
 
     Ok((
         StatusCode::OK,
-        Json(
-            create_response_with_data(
-                200, 
-                "success",
-                serde_json::json!({
-                    "meta": {"page": page, "limit": limit},
-                    "data": list_data_weapon
-                }).into()
-            )
-        ),
+        Json(create_response_with_data(
+            200,
+            "success",
+            serde_json::json!({
+                "meta": {"page": page, "limit": limit},
+                "data": list_data_weapon
+            })
+            .into(),
+        )),
     ))
 }
 
-/// # Feature for buy weapon
-/// # URL : `{BASE_URL}/api/inventory/buy-weapon`
-pub async fn buy_weapon(
+/// # Feature for get list weapon secondary
+/// # URL : `{BASE_URL}/api/inventory/list_shop_weapon_secondary`
+pub async fn list_shop_weapon_secondary(
     State(state): State<AppState>,
-    AppJson(body): AppJson<BuyWeaponRequest>,
+    AppQuery(query): AppQuery<ListShopWeaponQuery>,
 ) -> AppResult<impl IntoResponse> {
-    body.validate()?;
+    let page = query.page.unwrap_or(1).max(1);
+    let limit = query.limit.unwrap_or(10).clamp(1, 100);
+    let offset = (page - 1) * limit;
+
+    let list_data_weapon = if let Some(ref search) = query.search {
+        let pattern = format!("%{}%", search);
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_secondary_weapon_shop 
+        WHERE item_name ilike $1
+        AND item_visible = true
+        ORDER BY item_name ASC LIMIT $2 OFFSET $3",
+        )
+        .bind(&pattern)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    } else {
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_secondary_weapon_shop
+        WHERE item_visible = true
+        ORDER BY item_name ASC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    };
 
     Ok((
         StatusCode::OK,
-        Json(create_response(200, &format!("Berhasil Membeli Item"))),
+        Json(create_response_with_data(
+            200,
+            "success",
+            serde_json::json!({
+                "meta": {"page": page, "limit": limit},
+                "data": list_data_weapon
+            })
+            .into(),
+        )),
     ))
 }
 
-pub async fn buy_chara() {}
+/// # Feature for get list weapon melee
+/// # URL : `{BASE_URL}/api/inventory/list_shop_weapon_melee`
+pub async fn list_shop_weapon_melee(
+    State(state): State<AppState>,
+    AppQuery(query): AppQuery<ListShopWeaponQuery>,
+) -> AppResult<impl IntoResponse> {
+    let page = query.page.unwrap_or(1).max(1);
+    let limit = query.limit.unwrap_or(10).clamp(1, 100);
+    let offset = (page - 1) * limit;
 
-pub async fn buy_head() {}
+    let list_data_weapon = if let Some(ref search) = query.search {
+        let pattern = format!("%{}%", search);
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_melee_weapon_shop 
+        WHERE item_name ilike $1
+        AND item_visible = true
+        ORDER BY item_name ASC LIMIT $2 OFFSET $3",
+        )
+        .bind(&pattern)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    } else {
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_melee_weapon_shop
+        WHERE item_visible = true
+        ORDER BY item_name ASC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    };
+
+    Ok((
+        StatusCode::OK,
+        Json(create_response_with_data(
+            200,
+            "success",
+            serde_json::json!({
+                "meta": {"page": page, "limit": limit},
+                "data": list_data_weapon
+            })
+            .into(),
+        )),
+    ))
+}
+
+/// # Feature for get list weapon explosive
+/// # URL : `{BASE_URL}/api/inventory/list_shop_weapon_explosive`
+pub async fn list_shop_weapon_explosive(
+    State(state): State<AppState>,
+    AppQuery(query): AppQuery<ListShopWeaponQuery>,
+) -> AppResult<impl IntoResponse> {
+    let page = query.page.unwrap_or(1).max(1);
+    let limit = query.limit.unwrap_or(10).clamp(1, 100);
+    let offset = (page - 1) * limit;
+
+    let list_data_weapon = if let Some(ref search) = query.search {
+        let pattern = format!("%{}%", search);
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_explosive_weapon_shop 
+        WHERE item_name ilike $1
+        AND item_visible = true
+        ORDER BY item_name ASC LIMIT $2 OFFSET $3",
+        )
+        .bind(&pattern)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    } else {
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_explosive_weapon_shop
+        WHERE item_visible = true
+        ORDER BY item_name ASC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    };
+
+    Ok((
+        StatusCode::OK,
+        Json(create_response_with_data(
+            200,
+            "success",
+            serde_json::json!({
+                "meta": {"page": page, "limit": limit},
+                "data": list_data_weapon
+            })
+            .into(),
+        )),
+    ))
+}
+
+/// # Feature for get list character shop
+/// # URL : `{BASE_URL}/api/inventory/list_shop_character`
+pub async fn list_shop_character(
+    State(state): State<AppState>,
+    AppQuery(query): AppQuery<ListShopWeaponQuery>,
+) -> AppResult<impl IntoResponse> {
+    let page = query.page.unwrap_or(1).max(1);
+    let limit = query.limit.unwrap_or(10).clamp(1, 100);
+    let offset = (page - 1) * limit;
+
+    let list_data_weapon = if let Some(ref search) = query.search {
+        let pattern = format!("%{}%", search);
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_character_shop 
+        WHERE item_name ilike $1
+        AND item_visible = true
+        ORDER BY item_name ASC LIMIT $2 OFFSET $3",
+        )
+        .bind(&pattern)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    } else {
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_character_shop
+        WHERE item_visible = true
+        ORDER BY item_name ASC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    };
+
+    Ok((
+        StatusCode::OK,
+        Json(create_response_with_data(
+            200,
+            "success",
+            serde_json::json!({
+                "meta": {"page": page, "limit": limit},
+                "data": list_data_weapon
+            })
+            .into(),
+        )),
+    ))
+}
+
+/// # Feature for get list character shop
+/// # URL : `{BASE_URL}/api/inventory/list_shop_headgear`
+pub async fn list_shop_headgear(
+    State(state): State<AppState>,
+    AppQuery(query): AppQuery<ListShopWeaponQuery>,
+) -> AppResult<impl IntoResponse> {
+    let page = query.page.unwrap_or(1).max(1);
+    let limit = query.limit.unwrap_or(10).clamp(1, 100);
+    let offset = (page - 1) * limit;
+
+    let list_data_weapon = if let Some(ref search) = query.search {
+        let pattern = format!("%{}%", search);
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_headgear_shop 
+        WHERE item_name ilike $1
+        AND item_visible = true
+        ORDER BY item_name ASC LIMIT $2 OFFSET $3",
+        )
+        .bind(&pattern)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    } else {
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_headgear_shop
+        WHERE item_visible = true
+        ORDER BY item_name ASC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    };
+
+    Ok((
+        StatusCode::OK,
+        Json(create_response_with_data(
+            200,
+            "success",
+            serde_json::json!({
+                "meta": {"page": page, "limit": limit},
+                "data": list_data_weapon
+            })
+            .into(),
+        )),
+    ))
+}
+
+/// # Feature for get list character shop
+/// # URL : `{BASE_URL}/api/inventory/list_shop_consume`
+pub async fn list_shop_consume(
+    State(state): State<AppState>,
+    AppQuery(query): AppQuery<ListShopWeaponQuery>,
+) -> AppResult<impl IntoResponse> {
+    let page = query.page.unwrap_or(1).max(1);
+    let limit = query.limit.unwrap_or(10).clamp(1, 100);
+    let offset = (page - 1) * limit;
+
+    let list_data_weapon = if let Some(ref search) = query.search {
+        let pattern = format!("%{}%", search);
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_cosume_shop 
+        WHERE item_name ilike $1
+        AND item_visible = true
+        ORDER BY item_name ASC LIMIT $2 OFFSET $3",
+        )
+        .bind(&pattern)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    } else {
+        sqlx::query_as::<_, ShopWeapon>(
+            "
+        SELECT * FROM view_cosume_shop
+        WHERE item_visible = true
+        ORDER BY item_name ASC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&state.db)
+        .await?
+    };
+
+    Ok((
+        StatusCode::OK,
+        Json(create_response_with_data(
+            200,
+            "success",
+            serde_json::json!({
+                "meta": {"page": page, "limit": limit},
+                "data": list_data_weapon
+            })
+            .into(),
+        )),
+    ))
+}
+
+
+
+// pub async fn buy() {}

@@ -10,7 +10,8 @@ pub struct StateAccountMoney {
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct StateAccountMedal {
-    pub cash: i32,
-    pub gold: i32,
-    pub tag: i32
+    pub ribbon: i32,
+    pub ensign: i32,
+    pub medal: i32,
+    pub master_medal: i32
 }

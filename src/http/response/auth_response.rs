@@ -1,6 +1,6 @@
 use serde::{Serialize};
 
-use crate::models::auth_model::Account;
+use crate::models::account_model::Account;
 
 
 #[derive(Debug, Serialize)]

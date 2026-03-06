@@ -16,8 +16,10 @@ pub struct ChangePassword {
 pub struct ChangeEmail {
     #[garde(range(min = 1))]
     pub player_id: i32,
-    #[garde(pattern(r"[a-z]+"))]
+    #[garde(email)]
     pub new_email: String,
+    #[garde(email)]
+    pub old_email: String,
 }
 
 
