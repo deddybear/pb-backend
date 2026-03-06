@@ -1,14 +1,11 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
-use serde_json::json;
-
 use crate::{
     AppState,
     http::request::inventory_request::GetListRequest,
-    models::inventory_model::{StateAccountMedal, StateAccountMoney},
     utils::{
-        errors::{AppError, AppResult},
-        extractors::{AppJson, AppPath, AppQuery},
-        response::{create_response, create_response_with_data},
+        errors::{ AppResult},
+        extractors::{AppJson, AppPath},
+        response::{create_response},
     },
 };
 
@@ -21,6 +18,9 @@ pub async fn get_list(
     State(state): State<AppState>,
     AppJson(body): AppJson<GetListRequest>,
 ) -> AppResult<impl IntoResponse> {
+
+    body.validate()?;
+
     Ok((
         StatusCode::OK,
         Json(create_response(200, &format!("Feature terbuka"))),

@@ -2,7 +2,7 @@ use crate::{
     AppState,
     http::{
         query_params::shop_query_params::ListShopWeaponQuery,
-        request::shop_request::{BuyWeaponRequest, TopUpMedalRequest, TopUpMoneyRequest},
+        request::shop_request::{ TopUpMedalRequest, TopUpMoneyRequest},
     },
     models::{
         inventory_model::{StateAccountMedal, StateAccountMoney},
