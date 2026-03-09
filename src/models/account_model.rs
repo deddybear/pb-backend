@@ -20,6 +20,7 @@ pub struct AccountChangeEmail {
 pub struct Account {
     pub player_id: i64,
     pub username: String,
+    #[serde(skip_serializing)]
     pub password: String,
     pub email: String,
     pub age: i32,
@@ -32,6 +33,8 @@ pub struct Account {
     pub access_level: i32,
     pub create_time: NaiveDateTime,
     pub update_time: Option<NaiveDateTime>,
+    #[sqlx(skip)]
+    pub token: Option<String>
     // pub ribbon_count: i16,
     // pub ensign_count: i16,
     // pub medal_count: i16,
