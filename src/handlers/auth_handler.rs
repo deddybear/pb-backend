@@ -29,7 +29,7 @@ pub async fn login(
     body.validate()?;
 
     // checking account
-    let account = sqlx::query_as::<_, Account>(
+    let mut account = sqlx::query_as::<_, Account>(
         "
         SELECT player_id, username, password, email, age, 
                rank, gold, cash, experience, nickname, pc_cafe, access_level,
@@ -62,6 +62,8 @@ pub async fn login(
 
     // base encode
     let token_base_encode64 = BASE64_STANDARD.encode(token);
+
+    account.password = "-".to_string();
 
     Ok((
         StatusCode::OK,
@@ -210,10 +212,10 @@ pub async fn sign_up(
 
     Ok((
         StatusCode::CREATED,
-        Json(create_response_with_data(
+        Json(create_response(
             201,
-            &"Signup successful".to_string(),
-            Some(json!({"password_hash": password_hashed})),
+            &"Signup successful".to_string()
+            // Some(json!({"password_hash": password_hashed})),
         )),
     ))
 }
