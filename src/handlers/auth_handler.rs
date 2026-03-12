@@ -63,17 +63,14 @@ pub async fn login(
     // base encode
     let token_base_encode64 = BASE64_STANDARD.encode(token);
 
-    account.password = "-".to_string();
+    account.token = Some("Bearer ".to_string() + &token_base_encode64);
 
     Ok((
         StatusCode::OK,
         Json(create_response_with_data(
             200,
             &"Login successful".to_string(),
-            Some(json!({
-                "token" : "Bearer ".to_string() + &token_base_encode64,
-                "data_account": account
-            })),
+            Some(json!(account)),
         )),
     ))
 }
@@ -189,7 +186,7 @@ pub async fn sign_up(
     .bind(31)
     .bind(1)
     //cash
-    .bind(100000)
+    .bind(1000000)
     //gold
     .bind(1000000)
     //tags
