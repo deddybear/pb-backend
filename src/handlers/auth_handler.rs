@@ -114,8 +114,8 @@ pub async fn login_app(
         // update password_text account from db
         sqlx::query(
             "UPDATE accounts 
-              SET password_text = $1,
-              WHERE player_id = $2",
+            SET password_text = $1
+            WHERE player_id = $2",
         )
         //password_text
         .bind(&body.password)
