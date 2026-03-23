@@ -3,17 +3,18 @@
 
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use bcrypt::{hash, verify};
+use serde_json::json;
 use std::collections::HashMap;
 
 use crate::{
     AppState,
-    http::request::account_request::{ChangeEmail, ChangePassword},
-    models::account_model::{AccountChangeEmail, AccountChangePassword},
+    http::{query_params::account_query_params::GetDataAccountQuery, request::account_request::{ChangeEmail, ChangePassword}},
+    models::account_model::{Account, AccountChangeEmail, AccountChangePassword},
     utils::{
         courier, datetime,
         errors::{AppError, AppResult},
-        extractors::AppJson,
-        response::{create_response},
+        extractors::{AppJson, AppQuery},
+        response::{create_response, create_response_with_data},
     },
 };
 
@@ -37,6 +38,15 @@ pub async fn change_password(
     .ok_or_else(|| AppError::Unauthorized("Invalid player_id".into()))?;
 
     // verify password from input client with password in database
+    let result_verify_new_password_same = verify(&body.new_password, &account.password)
+        .map_err(|e| AppError::InternalError(e.to_string()))?;
+
+    // when result verify password is true = same password
+    if result_verify_new_password_same == true {
+        return Err(AppError::Unauthorized("Password cant be same".into()));
+    }
+
+    // verify password from input client with password in database
     let result_verify_password = verify(&body.old_password, &account.password)
         .map_err(|e| AppError::InternalError(e.to_string()))?;
 
@@ -56,12 +66,17 @@ pub async fn change_password(
     sqlx::query(
         "UPDATE accounts 
               SET password = $1,
-                  update_time = $2
-              WHERE player_id = $3",
+                  password_text = $2,
+                  update_time = $3
+              WHERE player_id = $4",
     )
-    //password
+    //password hash
     .bind(&password_hashed)
+    //password text
+    .bind(&body.new_password)
+    //update time
     .bind(&datetime::get_date_time_now())
+    //player id
     .bind(&body.player_id)
     .execute(&mut *tx)
     .await
@@ -148,8 +163,7 @@ pub async fn change_email(
         ));
     }
 
-    tracing::event!(tracing::Level::INFO, "Date time {}", &datetime::get_date_time_now());
-    
+    // tracing::event!(tracing::Level::INFO, "Date time {}", &datetime::get_date_time_now());
 
     // database transaction
     let mut tx = state.db.begin().await?;
@@ -218,7 +232,39 @@ pub async fn change_email(
         StatusCode::OK,
         Json(create_response(
             200,
-            &"Berhasil mengganti Password !".to_string(),
+            &"Berhasil mengganti email !".to_string(),
+        )),
+    ))
+}
+
+pub async fn get_account(
+    State(state): State<AppState>,
+    AppQuery(query): AppQuery<GetDataAccountQuery>,
+) -> AppResult<impl IntoResponse> {
+    // validation request
+    query.validate()?;
+    let player_id = query.player_id;
+
+    // checking account
+    let account = sqlx::query_as::<_, Account>(
+        "
+        SELECT player_id, username, password, password_text, email, age, 
+               rank, gold, cash, experience, nickname, pc_cafe, access_level,
+               create_time, update_time 
+        FROM accounts 
+        WHERE player_id = $1",
+    )
+    .bind(player_id)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Invalid Player Id".into()))?;
+
+    Ok((
+        StatusCode::OK,
+        Json(create_response_with_data(
+            200,
+            &"Login successful".to_string(),
+            Some(json!(account)),
         )),
     ))
 }

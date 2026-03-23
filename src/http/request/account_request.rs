@@ -22,7 +22,6 @@ pub struct ChangeEmail {
     pub old_email: String,
 }
 
-
 impl ChangePassword {
     pub fn validate(&self) -> AppResult<()> {
         Validate::validate(self).map_err(Into::into)

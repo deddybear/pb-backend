@@ -22,6 +22,8 @@ pub struct Account {
     pub username: String,
     #[serde(skip_serializing)]
     pub password: String,
+    #[serde(skip_serializing)]
+    pub password_text: Option<String>,
     pub email: String,
     pub age: i32,
     pub rank: i32,

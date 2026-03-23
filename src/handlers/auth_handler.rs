@@ -1,16 +1,15 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use base64::{Engine, prelude::BASE64_STANDARD};
-use std::collections::HashMap;
 use bcrypt::{hash, verify};
 use serde_json::json;
+use std::collections::HashMap;
 
 use crate::{
     AppState,
     http::request::auth_request::{AccountRecoveryRequest, LoginRequest, SignupRequest},
     models::account_model::{Account, AccountPasswordReset},
     utils::{
-        datetime,
-        courier,
+        courier, datetime,
         errors::{AppError, AppResult},
         extractors::AppJson,
         jwt::generate_token,
@@ -31,7 +30,7 @@ pub async fn login(
     // checking account
     let mut account = sqlx::query_as::<_, Account>(
         "
-        SELECT player_id, username, password, email, age, 
+        SELECT player_id, username, password, password_text, email, age, 
                rank, gold, cash, experience, nickname, pc_cafe, access_level,
                create_time, update_time 
         FROM accounts 
@@ -63,7 +62,7 @@ pub async fn login(
     // base encode
     let token_base_encode64 = BASE64_STANDARD.encode(token);
 
-    account.token = Some("Bearer ".to_string() + &token_base_encode64);
+    account.token = Some(token_base_encode64);
 
     Ok((
         StatusCode::OK,
@@ -87,9 +86,9 @@ pub async fn login_app(
     // checking account
     let account = sqlx::query_as::<_, Account>(
         "
-        SELECT player_id, username, password, email, age, 
+        SELECT player_id, username, password, password_text, email, age, 
                rank, gold, cash, experience, nickname, pc_cafe, access_level,
-               create_time, update_time 
+               create_time, update_time
         FROM accounts 
         WHERE username = $1",
     )
@@ -107,15 +106,34 @@ pub async fn login_app(
         return Err(AppError::Unauthorized("Invalid password".into()));
     }
 
+    // update when password_text empty
+    if account.password_text.as_deref().map_or(true, str::is_empty) {
+        // database transaction
+        let mut tx = state.db.begin().await?;
+
+        // update password_text account from db
+        sqlx::query(
+            "UPDATE accounts 
+              SET password_text = $1,
+              WHERE player_id = $2",
+        )
+        //password_text
+        .bind(&body.password)
+        //player_id
+        .bind(account.player_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| AppError::DatabaseError(e))?;
+
+        // db transaction commited
+        tx.commit().await.map_err(|e| AppError::DatabaseError(e))?;
+    }
+
     Ok((
         StatusCode::OK,
-        Json(create_response(
-            200,
-            &"Login successful".to_string()
-        )),
+        Json(create_response(200, &"Login successful".to_string())),
     ))
 }
-
 
 /// # feature for register new account
 /// # URL : `{BASE_URL}/api/auth/signup`
@@ -171,7 +189,7 @@ pub async fn sign_up(
 
     // insert new account in database
     sqlx::query(
-        "INSERT INTO accounts (username, password, email, age, rank, experience, cash, gold, tags, pc_cafe) 
+        "INSERT INTO accounts (username, password, email, age, rank, experience, cash, gold, tags, pc_cafe, password_text) 
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
     )
     //username
@@ -184,6 +202,7 @@ pub async fn sign_up(
     .bind(&body.age)
     //rank
     .bind(31)
+    //experience
     .bind(1)
     //cash
     .bind(1000000)
@@ -193,6 +212,8 @@ pub async fn sign_up(
     .bind(100000)
     //pc_cafe 
     .bind(2)
+    //password text
+    .bind(&body.password)
     .execute(&mut *tx)
     .await
     .map_err(|e| {
@@ -211,8 +232,7 @@ pub async fn sign_up(
         StatusCode::CREATED,
         Json(create_response(
             201,
-            &"Signup successful".to_string()
-            // Some(json!({"password_hash": password_hashed})),
+            &"Signup successful".to_string(), // Some(json!({"password_hash": password_hashed})),
         )),
     ))
 }
@@ -268,11 +288,15 @@ pub async fn password_reset(
     sqlx::query(
         "UPDATE accounts 
               SET password = $1,
+                  password_text = $2,
                   update_time = NOW()
-              WHERE player_id = $2",
+              WHERE player_id = $3",
     )
-    //password
+    //password hash
     .bind(&password_hashed)
+    //password_text
+    .bind(&new_password)
+    //player_id
     .bind(account.player_id)
     .execute(&mut *tx)
     .await
@@ -293,7 +317,6 @@ pub async fn password_reset(
     let mut variables: HashMap<&str, &str> = HashMap::new();
     let year_now = datetime::get_year_now().to_string();
     let email_support = &state.config.smtp_address_from.to_string();
-
 
     variables.insert("nickname", &account.nickname);
     variables.insert("new_password", &new_password_encode64);

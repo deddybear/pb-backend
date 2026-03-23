@@ -58,9 +58,9 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind(addr).await.expect("");
 
+    tracing::event!(tracing::Level::INFO, "Server running on http://{}", addr);
+
     axum::serve(listener, app)
         .await
         .expect("Failed to start server");
-
-    tracing::event!(tracing::Level::INFO, "Server running on http://{}", addr);
 }
