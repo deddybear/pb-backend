@@ -190,7 +190,7 @@ pub async fn sign_up(
     // insert new account in database
     sqlx::query(
         "INSERT INTO accounts (username, password, email, age, rank, experience, cash, gold, tags, pc_cafe, password_text) 
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
     )
     //username
     .bind(&body.username)
@@ -201,7 +201,7 @@ pub async fn sign_up(
     //age
     .bind(&body.age)
     //rank
-    .bind(31)
+    .bind(0)
     //experience
     .bind(1)
     //cash
