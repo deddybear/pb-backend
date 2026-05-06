@@ -6,15 +6,14 @@ use sqlx::FromRow;
 pub struct AccountChangePassword {
     pub password: String,
     pub email: String,
-    pub nickname: String
+    pub nickname: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct AccountChangeEmail {
     pub email: String,
-    pub nickname: String
+    pub nickname: String,
 }
-
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct Account {
@@ -36,11 +35,19 @@ pub struct Account {
     pub create_time: NaiveDateTime,
     pub update_time: Option<NaiveDateTime>,
     #[sqlx(skip)]
-    pub token: Option<String>
-    // pub ribbon_count: i16,
-    // pub ensign_count: i16,
-    // pub medal_count: i16,
-    // pub master_medal_count: i16,
+    pub token: Option<String>, // pub ribbon_count: i16,
+                               // pub ensign_count: i16,
+                               // pub medal_count: i16,
+                               // pub master_medal_count: i16,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct MedalAccount {
+    pub update_time: Option<NaiveDateTime>,
+    pub ribbon: i32,
+    pub ensign: i32,
+    pub medal: i32,
+    pub master_medal: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]

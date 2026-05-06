@@ -106,7 +106,7 @@ pub async fn login_app(
         return Err(AppError::Unauthorized("Invalid password".into()));
     }
 
-    // update when password_text empty
+    // update when column password_text empty
     if account.password_text.as_deref().map_or(true, str::is_empty) {
         // database transaction
         let mut tx = state.db.begin().await?;

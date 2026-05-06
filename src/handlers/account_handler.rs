@@ -8,8 +8,11 @@ use std::collections::HashMap;
 
 use crate::{
     AppState,
-    http::{query_params::account_query_params::GetDataAccountQuery, request::account_request::{ChangeEmail, ChangePassword}},
-    models::account_model::{Account, AccountChangeEmail, AccountChangePassword},
+    http::{
+        query_params::account_query_params::GetDataAccountQuery,
+        request::account_request::{ChangeEmail, ChangePassword},
+    },
+    models::account_model::{Account, AccountChangeEmail, AccountChangePassword, MedalAccount},
     utils::{
         courier, datetime,
         errors::{AppError, AppResult},
@@ -237,6 +240,8 @@ pub async fn change_email(
     ))
 }
 
+/// # Feature for get account
+/// # URL : `{BASE_URL}/api/account/get-data?player_id=1234`
 pub async fn get_account(
     State(state): State<AppState>,
     AppQuery(query): AppQuery<GetDataAccountQuery>,
@@ -263,7 +268,39 @@ pub async fn get_account(
         StatusCode::OK,
         Json(create_response_with_data(
             200,
-            &"Login successful".to_string(),
+            &"successful".to_string(),
+            Some(json!(account)),
+        )),
+    ))
+}
+
+/// # Feature for get account
+/// # URL : `{BASE_URL}/api/account/get-data-medal?player_id=1234`
+pub async fn get_account_medal(
+    State(state): State<AppState>,
+    AppQuery(query): AppQuery<GetDataAccountQuery>,
+) -> AppResult<impl IntoResponse> {
+    // validation request
+    query.validate()?;
+    let player_id = query.player_id;
+
+    // checking account
+    let account = sqlx::query_as::<_, MedalAccount>(
+        "
+        SELECT update_time, ribbon, ensign, medal, master_medal
+        FROM accounts 
+        WHERE player_id = $1",
+    )
+    .bind(player_id)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Invalid Player Id".into()))?;
+
+    Ok((
+        StatusCode::OK,
+        Json(create_response_with_data(
+            200,
+            &"successful".to_string(),
             Some(json!(account)),
         )),
     ))

@@ -2,7 +2,7 @@ use crate::{
     AppState,
     http::{
         query_params::shop_query_params::ListShopWeaponQuery,
-        request::shop_request::{ TopUpMedalRequest, TopUpMoneyRequest},
+        request::shop_request::{TopUpMedalRequest, TopUpMoneyRequest},
     },
     models::{
         inventory_model::{StateAccountMedal, StateAccountMoney},
@@ -17,11 +17,11 @@ use crate::{
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 
 /// feature is for shop
-/// top up cash, gold, tag
+/// top up cash, gold, tags
 /// top up ribbon, ensign, medal, master_medal
 /// buy weapon, chara, head
 
-/// # Feature for top up cash, gold and tag
+/// # Feature for top up cash, gold and tags
 /// # URL : `{BASE_URL}/api/inventory/top-up-money`
 pub async fn top_up_money(
     State(state): State<AppState>,
@@ -32,7 +32,7 @@ pub async fn top_up_money(
     let mut tx = state.db.begin().await?;
 
     let current_account = sqlx::query_as::<_, StateAccountMoney>(
-        "SELECT cash, gold, tag FROM account WHERE player_id = $1 FOR UPDATE",
+        "SELECT cash, gold, tags FROM accounts WHERE player_id = $1 FOR UPDATE",
     )
     .bind(body.player_id)
     .fetch_optional(&mut *tx)
@@ -42,9 +42,28 @@ pub async fn top_up_money(
     let update_value = match body.top_up_type.as_str() {
         "cash" => body.value + current_account.cash,
         "gold" => body.value + current_account.gold,
-        "tag" => body.value + current_account.tag,
+        "tags" => body.value + current_account.tags,
         _ => return Err(AppError::BadRequest("type top up not found".into())),
     };
+
+    // check batasan value setiap top up
+    // point 10jt, cash 2jt, tag 1jt
+    let (max_value, label) = match body.top_up_type.as_str() {
+        "cash" => (2_000_000, "cash (maks. 2jt)"),
+        "gold" => (10_000_000, "point (maks. 10jt)"),
+        "tags" => (1_000_000, "tags (maks. 1jt)"),
+        _ => return Err(AppError::BadRequest("type top up not found".into())),
+    };
+
+    if update_value > max_value {
+        return Err(AppError::BadRequest(
+            format!(
+                "gagal melakukan top up {} karena melebihi batas maksimal {}",
+                body.top_up_type, label
+            )
+            .into(),
+        ));
+    }
 
     let query_row = format!(
         "UPDATE accounts SET {} = $1 WHERE player_id = $2",
@@ -86,7 +105,7 @@ pub async fn top_up_medal(
 
     // !property perlu di adjust
     let current_account = sqlx::query_as::<_, StateAccountMedal>(
-        "SELECT ribbon, ensign, medal, master_medal FROM account WHERE player_id = $1 FOR UPDATE",
+        "SELECT ribbon, ensign, medal, master_medal FROM accounts WHERE player_id = $1 FOR UPDATE",
     )
     .bind(body.player_id)
     .fetch_optional(&mut *tx)
@@ -100,6 +119,26 @@ pub async fn top_up_medal(
         "master_medal" => body.value + current_account.master_medal,
         _ => return Err(AppError::BadRequest("type top up not found".into())),
     };
+
+    // check batasan value setiap top up
+    // ribbon 200, ensign 150, medal 100, master_medal 50
+    let (max_value, label) = match body.top_up_type.as_str() {
+        "ribbon" => (200, "cash (maks. 200)"),
+        "ensign" => (150, "point (maks. 150)"),
+        "medal" => (100, "tags (maks. 100)"),
+        "master_medal" => (50, "tags (maks. 50)"),
+        _ => return Err(AppError::BadRequest("type top up not found".into())),
+    };
+
+    if update_value > max_value {
+        return Err(AppError::BadRequest(
+            format!(
+                "gagal melakukan top up {} karena melebihi batas maksimal {}",
+                body.top_up_type, label
+            )
+            .into(),
+        ));
+    }
 
     let query_row = format!(
         "UPDATE accounts SET {} = $1 WHERE player_id = $2",
@@ -140,7 +179,6 @@ pub async fn list_shop_weapon_primary(
     let offset = (page - 1) * limit;
 
     let list_data_weapon = if let Some(ref search) = query.search {
-
         let pattern = format!("%{}%", search);
         sqlx::query_as::<_, ShopWeapon>(
             "
@@ -486,7 +524,5 @@ pub async fn list_shop_consume(
         )),
     ))
 }
-
-
 
 // pub async fn buy() {}
