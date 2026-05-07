@@ -5,7 +5,8 @@ use sqlx::FromRow;
 pub struct StateAccountMoney {
     pub cash: i32,
     pub gold: i32,
-    pub tags: i32
+    pub tags: i32,
+    pub online: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
@@ -13,5 +14,6 @@ pub struct StateAccountMedal {
     pub ribbon: i32,
     pub ensign: i32,
     pub medal: i32,
-    pub master_medal: i32
+    pub master_medal: i32,
+    pub online: bool,
 }

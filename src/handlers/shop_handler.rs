@@ -32,12 +32,18 @@ pub async fn top_up_money(
     let mut tx = state.db.begin().await?;
 
     let current_account = sqlx::query_as::<_, StateAccountMoney>(
-        "SELECT cash, gold, tags FROM accounts WHERE player_id = $1 FOR UPDATE",
+        "SELECT cash, gold, tags, online FROM accounts WHERE player_id = $1 FOR UPDATE",
     )
     .bind(body.player_id)
     .fetch_optional(&mut *tx)
     .await?
     .ok_or_else(|| AppError::NotFound("current account not found".into()))?;
+
+    if current_account.online == true {
+        return Err(AppError::Forbidden(
+            "akun anda berstatus online mohon untuk logout terlebih dahulu".into(),
+        ));
+    }
 
     let update_value = match body.top_up_type.as_str() {
         "cash" => body.value + current_account.cash,
@@ -105,12 +111,18 @@ pub async fn top_up_medal(
 
     // !property perlu di adjust
     let current_account = sqlx::query_as::<_, StateAccountMedal>(
-        "SELECT ribbon, ensign, medal, master_medal FROM accounts WHERE player_id = $1 FOR UPDATE",
+        "SELECT ribbon, ensign, medal, master_medal, online FROM accounts WHERE player_id = $1 FOR UPDATE",
     )
     .bind(body.player_id)
     .fetch_optional(&mut *tx)
     .await?
     .ok_or_else(|| AppError::NotFound("current account not found".into()))?;
+
+    if current_account.online == true {
+        return Err(AppError::Forbidden(
+            "akun anda berstatus online mohon untuk logout terlebih dahulu".into(),
+        ));
+    }
 
     let update_value = match body.top_up_type.as_str() {
         "ribbon" => body.value + current_account.ribbon,
