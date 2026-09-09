@@ -42,6 +42,16 @@ pub struct Account {
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
+pub struct DataLogin {
+    pub player_id: i64,
+    #[serde(skip_serializing)]
+    pub password: String,
+    #[serde(skip_serializing)]
+    pub password_text: Option<String>,
+    pub token: Option<String>
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow, Clone)]
 pub struct MedalAccount {
     pub update_time: Option<NaiveDateTime>,
     pub ribbon: i32,

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use crate::{
     AppState,
     http::request::auth_request::{AccountRecoveryRequest, LoginRequest, SignupRequest},
-    models::account_model::{Account, AccountPasswordReset},
+    models::account_model::{Account, AccountPasswordReset, DataLogin},
     utils::{
         courier, datetime,
         errors::{AppError, AppResult},
@@ -84,11 +84,9 @@ pub async fn login_app(
     body.validate()?;
 
     // checking account
-    let account = sqlx::query_as::<_, Account>(
+    let data_login = sqlx::query_as::<_, DataLogin>(
         "
-        SELECT player_id, username, password, password_text, email, age, 
-               rank, gold, cash, experience, nickname, pc_cafe, access_level,
-               create_time, update_time
+        SELECT player_id, password, password_text, token
         FROM accounts 
         WHERE username = $1",
     )
@@ -98,7 +96,7 @@ pub async fn login_app(
     .ok_or_else(|| AppError::Unauthorized("Invalid username".into()))?;
 
     // verify password from input client with password in database
-    let result_verify_password = verify(&body.password, &account.password)
+    let result_verify_password = verify(&body.password, &data_login.password)
         .map_err(|e| AppError::InternalError(e.to_string()))?;
 
     // when result verify password is false
@@ -107,7 +105,11 @@ pub async fn login_app(
     }
 
     // update when column password_text empty
-    if account.password_text.as_deref().map_or(true, str::is_empty) {
+    if data_login
+        .password_text
+        .as_deref()
+        .map_or(true, str::is_empty)
+    {
         // database transaction
         let mut tx = state.db.begin().await?;
 
@@ -120,7 +122,7 @@ pub async fn login_app(
         //password_text
         .bind(&body.password)
         //player_id
-        .bind(account.player_id)
+        .bind(data_login.player_id)
         .execute(&mut *tx)
         .await
         .map_err(|e| AppError::DatabaseError(e))?;
@@ -131,7 +133,11 @@ pub async fn login_app(
 
     Ok((
         StatusCode::OK,
-        Json(create_response(200, &"Login successful".to_string())),
+        Json(create_response_with_data(
+            200,
+            &"Login successful".to_string(),
+            Some(json!(data_login)),
+        )),
     ))
 }
 
