@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::{routes::init_routes, utils::config::Config};
+use crate::{routes::init_routes, utils::{config::Config, exception::setup_panic_hook}};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -32,6 +32,8 @@ async fn main() {
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
+
+    setup_panic_hook();
 
     let config = Config::from_env().expect("Failed to load config");
     let config = Arc::new(config);

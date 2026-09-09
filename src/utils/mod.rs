@@ -7,3 +7,4 @@ pub mod jwt;
 pub mod courier;
 pub mod rand;
 pub mod datetime;
+pub mod exception;

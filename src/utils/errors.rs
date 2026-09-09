@@ -34,6 +34,7 @@ pub enum AppError {
     Conflict(String),
 
     // ── 413 Payload Too Large ────────────────────────────────────────────────
+    #[allow(dead_code)]
     #[error("Payload too large: {0}")]
     PayloadTooLarge(String),
 

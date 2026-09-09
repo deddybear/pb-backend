@@ -17,6 +17,7 @@ use crate::utils::errors::AppError;
 /// ```rust
 /// pub async fn create(AppJson(body): AppJson<CreatePostRequest>) -> AppResult<...>
 /// ```
+#[allow(dead_code)]
 pub struct AppJson<T>(pub T);
 
 
@@ -43,6 +44,7 @@ where
 /// ```rust
 /// pub async fn get_by_id(AppPath(id): AppPath<Uuid>) -> AppResult<...>
 /// ```
+#[allow(dead_code)]
 pub struct AppPath<T>(pub T);
 
 
